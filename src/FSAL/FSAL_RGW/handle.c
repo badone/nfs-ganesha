@@ -81,7 +81,7 @@ static fsal_status_t lookup(struct fsal_obj_handle *dir_pub,
 	struct rgw_handle *obj = NULL;
 	struct Inode *i = NULL;
 
-//	rc = rgw_ll_lookup(export->cmount, dir->i, path, &st, &i, 0, 0);
+	rc = rgw_lookup(export->cmount, dir, path, &st, &i, 0, 0);
 
 	if (rc < 0)
 		return rgw2fsal_error(rc);
@@ -89,7 +89,6 @@ static fsal_status_t lookup(struct fsal_obj_handle *dir_pub,
 	rc = construct_handle(&st, i, export, &obj);
 
 	if (rc < 0) {
-//		rgw_ll_put(export->cmount, i);
 		return rgw2fsal_error(rc);
 	}
 
@@ -128,54 +127,12 @@ static fsal_status_t fsal_readdir(struct fsal_obj_handle *dir_pub,
 	struct rgw_handle *dir = container_of(dir_pub, struct rgw_handle, handle);
 	/* The director descriptor */
 	struct rgw_dir_result *dir_desc = NULL;
-	/* Cookie marking the start of the readdir */
-	uint64_t start = 0;
 	/* Return status */
 	fsal_status_t fsal_status = { ERR_FSAL_NO_ERROR, 0 };
 
-//	rc = rgw_ll_opendir(export->cmount, dir->i, &dir_desc, 0, 0);
+	rc = rgw_readdir(export->cmount, dir, &dir_desc);
 	if (rc < 0)
 		return rgw2fsal_error(rc);
-
-	if (whence != NULL)
-		start = *whence;
-
-//	rgw_seekdir(export->cmount, dir_desc, start);
-
-	while (!(*eof)) {
-		struct stat st;
-		struct dirent de;
-		int stmask = 0;
-
-//		rc = rgw_readdirplus_r(export->cmount, dir_desc, &de, &st,
-//					&stmask);
-		if (rc < 0) {
-			fsal_status = rgw2fsal_error(rc);
-			goto closedir;
-		} else if (rc == 1) {
-			/* skip . and .. */
-			if ((strcmp(de.d_name, ".") == 0)
-			    || (strcmp(de.d_name, "..") == 0)) {
-				continue;
-			}
-
-			if (!cb(de.d_name, dir_state, de.d_off))
-				goto closedir;
-
-		} else if (rc == 0) {
-			*eof = true;
-		} else {
-			/* Can't happen */
-			abort();
-		}
-	}
-
- closedir:
-
-//	rc = rgw_ll_releasedir(export->cmount, dir_desc);
-
-	if (rc < 0)
-		fsal_status = rgw2fsal_error(rc);
 
 	return fsal_status;
 }
@@ -214,16 +171,13 @@ static fsal_status_t fsal_create(struct fsal_obj_handle *dir_pub,
 
 	unix_mode = fsal2unix_mode(attrib->mode)
 	    & ~op_ctx->fsal_export->exp_ops.fs_umask(op_ctx->fsal_export);
-//	rc = rgw_ll_create(export->cmount, dir->i, name, unix_mode,
-//			    O_CREAT, &st, &i, NULL, op_ctx->creds->caller_uid,
-//			    op_ctx->creds->caller_gid);
+	rc = rgw_create(export->cmount, dir, name, unix_mode, &st,
+                        &i;
 	if (rc < 0)
 		return rgw2fsal_error(rc);
 
 	rc = construct_handle(&st, i, export, &obj);
-
 	if (rc < 0) {
-//		rgw_ll_put(export->cmount, i);
 		return rgw2fsal_error(rc);
 	}
 
@@ -266,9 +220,7 @@ static fsal_status_t fsal_mkdir(struct fsal_obj_handle *dir_pub,
 
 	unix_mode = fsal2unix_mode(attrib->mode)
 		& ~op_ctx->fsal_export->exp_ops.fs_umask(op_ctx->fsal_export);
-//	rc = rgw_ll_mkdir(export->cmount, dir->i, name, unix_mode, &st, &i,
-//			   op_ctx->creds->caller_uid,
-//			   op_ctx->creds->caller_gid);
+	rc = rgw_mkdir(export->cmount, dir, name, unix_mode, &st, &i);
 
 	if (rc < 0)
 		return rgw2fsal_error(rc);
@@ -276,7 +228,6 @@ static fsal_status_t fsal_mkdir(struct fsal_obj_handle *dir_pub,
 	rc = construct_handle(&st, i, export, &obj);
 
 	if (rc < 0) {
-//		rgw_ll_put(export->cmount, i);
 		return rgw2fsal_error(rc);
 	}
 
@@ -309,7 +260,7 @@ static fsal_status_t getattrs(struct fsal_obj_handle *handle_pub)
 	/* Stat buffer */
 	struct stat st;
 
-//	rc = rgw_ll_getattr(export->cmount, handle->i, &st, 0, 0);
+	rc = rgw_getattr(export->cmount, handle, &st);
 
 	if (rc < 0)
 		return rgw2fsal_error(rc);
@@ -412,9 +363,9 @@ static fsal_status_t setattrs(struct fsal_obj_handle *handle_pub,
 		mask |= RGW_SETATTR_CTIME;
 		st.st_ctim = attrs->ctime;
 	}
-
-	rc = rgw_ll_setattr(export->cmount, handle->i, &st, mask, 0, 0);
 */
+	rc = rgw_setattr(export->cmount, handle, &st, mask);
+
 	if (rc < 0)
 		return rgw2fsal_error(rc);
 
@@ -451,9 +402,8 @@ static fsal_status_t fsal_rename(struct fsal_obj_handle *obj_hdl,
 	/* The private 'full' destination directory handle */
 	struct rgw_handle *newdir = container_of(newdir_pub, struct rgw_handle, handle);
 
-//	rc = rgw_ll_rename(export->cmount, olddir->i, old_name, newdir->i,
-//			    new_name, op_ctx->creds->caller_uid,
-//			    op_ctx->creds->caller_gid);
+	rc = rgw_rename(export->cmount, olddir, old_name, newdir,
+                        new_name);
 
 	if (rc < 0)
 		return rgw2fsal_error(rc);
@@ -485,15 +435,7 @@ static fsal_status_t fsal_unlink(struct fsal_obj_handle *dir_pub,
 	/* The private 'full' object handle */
 	struct rgw_handle *dir = container_of(dir_pub, struct rgw_handle, handle);
 
-//	rc = rgw_ll_unlink(export->cmount, dir->i, name,
-//			    op_ctx->creds->caller_uid,
-//			    op_ctx->creds->caller_gid);
-	if (rc == -EISDIR) {
-//		rc = rgw_ll_rmdir(export->cmount, dir->i, name,
-//				   op_ctx->creds->caller_uid,
-//				   op_ctx->creds->caller_gid);
-	}
-
+	rc = rgw_unlink(export->cmount, dir, name;
 	if (rc < 0)
 		return rgw2fsal_error(rc);
 
@@ -519,7 +461,7 @@ static fsal_status_t fsal_open(struct fsal_obj_handle *handle_pub,
 	/* Generic status return */
 	int rc = 0;
 	/* The private 'full' export */
-	struct rgw_export *export =
+	struct rgw_export *export 
 	    container_of(op_ctx->fsal_export, struct rgw_export, export);
 	/* The private 'full' object handle */
 	struct rgw_handle *handle = container_of(handle_pub, struct rgw_handle, handle);
@@ -539,8 +481,7 @@ static fsal_status_t fsal_open(struct fsal_obj_handle *handle_pub,
 	if (handle->openflags != FSAL_O_CLOSED)
 		return fsalstat(ERR_FSAL_SERVERFAULT, 0);
 
-//	rc = rgw_ll_open(export->cmount, handle->i, posix_flags, &(handle->fd),
-//			  0, 0);
+	rc = rgw_open(export->cmount, handle, posix_flags);
 	if (rc < 0) {
                return rgw2fsal_error(rc);
 	}
@@ -600,9 +541,9 @@ static fsal_status_t fsal_read(struct fsal_obj_handle *handle_pub,
 	/* Signed, so we can pick up on errors */
 	int64_t nb_read = 0;
 
-//	nb_read =
-//	    rgw_ll_read(export->cmount, handle->fd, offset, buffer_size,
-//			 buffer);
+	nb_read =
+	    rgw_read(export->cmount, handle, offset, buffer_size,
+			 buffer);
 
 	if (nb_read < 0)
 		return rgw2fsal_error(nb_read);
@@ -645,9 +586,8 @@ static fsal_status_t fsal_write(struct fsal_obj_handle *handle_pub,
 	/* Signed, so we can pick up on errors */
 	int64_t nb_written = 0;
 
-//	nb_written =
-//	    rgw_ll_write(export->cmount, handle->fd, offset, buffer_size,
-//			  buffer);
+	nb_written =
+	    rgw_write(export->cmount, handle->fd, offset, buffer_size, buffer);
 
 	if (nb_written < 0)
 		return rgw2fsal_error(nb_written);
@@ -684,7 +624,7 @@ static fsal_status_t commit(struct fsal_obj_handle *handle_pub,
 	/* The private 'full' object handle */
 	struct rgw_handle *handle = container_of(handle_pub, struct rgw_handle, handle);
 
-//	rc = rgw_ll_fsync(export->cmount, handle->fd, false);
+	rc = rgw_fsync(export->cmount, handle);
 
 	if (rc < 0)
 		return rgw2fsal_error(rc);
@@ -710,7 +650,7 @@ static fsal_status_t fsal_close(struct fsal_obj_handle *handle_pub)
 	/* The private 'full' object handle */
 	struct rgw_handle *handle = container_of(handle_pub, struct rgw_handle, handle);
 
-//	rc = rgw_ll_close(handle->export->cmount, handle->fd);
+	rc = rgw_close(handle->export->cmount, handle);
 
 	if (rc < 0)
 		return rgw2fsal_error(rc);
@@ -746,16 +686,7 @@ static fsal_status_t handle_digest(const struct fsal_obj_handle *handle_pub,
 		/* Digested Handles */
 	case FSAL_DIGEST_NFSV3:
 	case FSAL_DIGEST_NFSV4:
-/*		if (fh_desc->len < sizeof(handle->vi)) {
-			LogMajor(COMPONENT_FSAL,
-				 "digest_handle: space too small for "
-				 "handle.  Need %zu, have %zu",
-				 sizeof(vinodeno_t), fh_desc->len);
-			return fsalstat(ERR_FSAL_TOOSMALL, 0);
-		} else {
-			memcpy(fh_desc->addr, &handle->vi, sizeof(vinodeno_t));
-			fh_desc->len = sizeof(handle->vi);
-                 }*/
+            
 		break;
 
 	default:
@@ -780,7 +711,6 @@ static void handle_to_key(struct fsal_obj_handle *handle_pub,
 	/* The private 'full' object handle */
 	struct rgw_handle *handle = container_of(handle_pub, struct rgw_handle, handle);
 
-//	fh_desc->addr = &handle->vi;
 	fh_desc->len = sizeof(vinodeno_t);
 }
 
