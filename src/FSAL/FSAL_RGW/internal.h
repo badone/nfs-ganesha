@@ -71,7 +71,7 @@ struct rgw_handle {
 	fsal_openflags_t openflags;
 	const struct fsal_up_vector *up_ops;	/*< Upcall operations */
 	struct rgw_export *export;	/*< The first export this handle belongs to */
-    /* pointer to the root bucket ??? */
+        uint64_t nfs_handle;
 };
 
 #ifndef RGW_INTERNAL_C
@@ -100,7 +100,7 @@ struct Inode
 /* TBD */
 };
 /* Prototypes */
-int construct_handle(const struct stat *st, struct Inode *i,
+int construct_handle(const struct stat *st, uint64_t nfs_handle,
 		     struct rgw_export *export, struct rgw_handle **obj);
 void deconstruct_handle(struct rgw_handle *obj);
 

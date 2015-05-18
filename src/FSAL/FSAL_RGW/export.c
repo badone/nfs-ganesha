@@ -93,8 +93,6 @@ static fsal_status_t lookup_path(struct fsal_export *export_pub,
 	    container_of(export_pub, struct rgw_export, export);
 	/* The 'private' full object handle */
 	struct rgw_handle *handle = NULL;
-	/* Inode pointer */
-	struct Inode *i = NULL;
 	/* FSAL status structure */
 	fsal_status_t status = { ERR_FSAL_NO_ERROR, 0 };
 	/* The buffer in which to store stat info */
@@ -103,7 +101,8 @@ static fsal_status_t lookup_path(struct fsal_export *export_pub,
 	int rc;
 	/* Find the actual path in the supplied path */
 	const char *realpath;
-
+        uint64_t i;
+        
 	if (*path != '/') {
 		realpath = strchr(path, ':');
 		if (realpath == NULL) {
@@ -126,14 +125,13 @@ static fsal_status_t lookup_path(struct fsal_export *export_pub,
 		return status;
 	}
 
-	rc = rgw_ll_walk(export->cmount, realpath, &i, &st);
+	rc = rgw_lookup(export->cmount, realpath, &i, &st);
 	if (rc < 0)
-		return ceph2fsal_error(rc);
+		return rgw2fsal_error(rc);
 
 	rc = construct_handle(&st, i, export, &handle);
 	if (rc < 0) {
-		rgw_ll_put(export->cmount, i);
-		return ceph2fsal_error(rc);
+		return rgw2fsal_error(rc);
 	}
 
 	*pub_handle = &handle->handle;
@@ -191,15 +189,13 @@ static fsal_status_t create_handle(struct fsal_export *export_pub,
 	fsal_status_t status = { ERR_FSAL_NO_ERROR, 0 };
 	/* The FSAL specific portion of the handle received by the
 	   client */
-	vinodeno_t *vi = desc->addr;
-	/* Ceph return code */
 	int rc = 0;
 	/* Stat buffer */
 	struct stat st;
 	/* Handle to be created */
 	struct rgw_handle *handle = NULL;
-	/* Inode pointer */
-	struct Inode *i;
+        uint64_t nfs_handle = *(uint64_t *)(desc->addr);
+        
 
 	*pub_handle = NULL;
 
@@ -208,20 +204,18 @@ static fsal_status_t create_handle(struct fsal_export *export_pub,
 		return status;
 	}
 
-//	i = rgw_ll_get_inode(export->cmount, *vi);
-	if (!i)
-		return ceph2fsal_error(-ESTALE);
-
-	/* The rgw_ll_connectable_m should have populated libceph's
-	   cache with all this anyway */
-//	rc = rgw_ll_getattr(export->cmount, i, &st, 0, 0);
+	rc = rgw_check_handle(export, desc, &nfs_handle);
+	if (!rc) {
+		return rgw2fsal_error(-ESTALE);
+        }
+        
+        rc = rgw_getattr(export, nfs_handle, &st);
 	if (rc < 0)
-		return ceph2fsal_error(rc);
+		return rgw2fsal_error(rc);
 
-	rc = construct_handle(&st, i, export, &handle);
+	rc = construct_handle(&st, nfs_handle, export, &handle);
 	if (rc < 0) {
-		rgw_ll_put(export->cmount, i);
-		return ceph2fsal_error(rc);
+		return rgw2fsal_error(rc);
 	}
 
 	*pub_handle = &handle->handle;
@@ -255,7 +249,7 @@ static fsal_status_t get_fs_dynamic_info(struct fsal_export *export_pub,
 //	rc = rgw_ll_statfs(export->cmount, export->root->i, &vfs_st);
 
 	if (rc < 0)
-		return ceph2fsal_error(rc);
+		return rgw2fsal_error(rc);
 
 	memset(info, 0, sizeof(fsal_dynamicfsinfo_t));
 	info->total_bytes = vfs_st.f_frsize * vfs_st.f_blocks;

@@ -145,11 +145,7 @@ static fsal_status_t create_export(struct fsal_module *module_in,
 	/* The internal export object */
 	struct rgw_export *export = gsh_calloc(1, sizeof(struct rgw_export));
 	/* The 'private' root handle */
-	struct handle *handle = NULL;
-	/* Root inode */
-	struct Inode *i = NULL;
-	/* Root vinode */
-	//vinodeno_t root;
+	struct rgw_handle *handle = NULL;
 	/* Stat for root */
 	struct stat st;
 	/* Return code */
@@ -158,7 +154,8 @@ static fsal_status_t create_export(struct fsal_module *module_in,
 	int rgw_status;
 	/* True if we have called fsal_export_init */
 	bool initialized = false;
-
+        uint64_t i;
+        
 	if (export == NULL) {
 		status.major = ERR_FSAL_NOMEM;
 		LogCrit(COMPONENT_FSAL,

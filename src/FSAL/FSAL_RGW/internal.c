@@ -262,22 +262,18 @@ void rgw2fsal_attributes(const struct stat *buffstat,
  * @return 0 on success, negative error codes on failure.
  */
 
-int construct_handle(const struct stat *st, struct Inode *i,
+int construct_handle(const struct stat *st, uint64_t nfs_handle,
 		     struct rgw_export *export, struct rgw_handle **obj)
 {
 	/* Poitner to the handle under construction */
 	struct rgw_handle *constructing = NULL;
-
-	assert(i);
 	*obj = NULL;
 
 	constructing = gsh_calloc(1, sizeof(struct rgw_handle));
 	if (constructing == NULL)
 		return -ENOMEM;
 
-//	constructing->vi.ino.val = st->st_ino;
-//	constructing->vi.snapid.val = st->st_dev;
-//	constructing->i = i;
+        constructing->nfs_handle = nfs_handle;
 	constructing->up_ops = export->export.up_ops;
 
 	rgw2fsal_attributes(st, &constructing->handle.attributes);
@@ -300,7 +296,6 @@ int construct_handle(const struct stat *st, struct Inode *i,
 
 void deconstruct_handle(struct rgw_handle *obj)
 {
-//	rgw_ll_put(obj->export->cmount, obj->i);
 	fsal_obj_handle_uninit(&obj->handle);
 	gsh_free(obj);
 }
