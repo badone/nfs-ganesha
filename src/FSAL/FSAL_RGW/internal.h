@@ -41,7 +41,7 @@
 
 
 /**
- * Ceph Main (global) module object
+ * RGW Main (global) module object
  */
 
 struct rgw_fsal_module {
@@ -95,37 +95,15 @@ static inline fsal_staticfsinfo_t *rgw_staticinfo(struct fsal_module *hdl)
 	return &myself->fs_info;
 }
 
-struct Inode
-{
-/* TBD */
-};
 /* Prototypes */
 int construct_handle(const struct stat *st, uint64_t nfs_handle,
 		     struct rgw_export *export, struct rgw_handle **obj);
 void deconstruct_handle(struct rgw_handle *obj);
 
-
-/**
- * @brief FSAL status from Ceph error
- *
- * This function returns a fsal_status_t with the FSAL error as the
- * major, and the posix error as minor. (Ceph's error codes are just
- * negative signed versions of POSIX error codes.)
- *
- * @param[in] ceph_errorcode Ceph error (negative Posix)
- *
- * @return FSAL status.
- */
-static inline fsal_status_t ceph2fsal_error(const int ceph_errorcode)
-{
-	return fsalstat(posix2fsal_error(-ceph_errorcode), -ceph_errorcode);
-}
-
-fsal_status_t rgw2fsal_error(const int rgw_errorcode);
+fsal_status_t rgw2fsal_error(const int errorcode);
 void rgw2fsal_attributes(const struct stat *buffstat,
 			  struct attrlist *fsalattr);
 void export_ops_init(struct export_ops *ops);
 void handle_ops_init(struct fsal_obj_ops *ops);
-
 
 #endif				/* !FSAL_RGW_INTERNAL_INTERNAL__ */
