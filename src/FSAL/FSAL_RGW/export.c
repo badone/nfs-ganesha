@@ -29,7 +29,7 @@
 #include <limits.h>
 #include <stdint.h>
 #include <sys/statvfs.h>
-#include <cephfs/libcephfs.h>
+#include <rados/rgw_file.h>
 #include "abstract_mem.h"
 #include "fsal.h"
 #include "fsal_types.h"
@@ -488,3 +488,14 @@ void export_ops_init(struct export_ops *ops)
 	ops->fs_umask = fs_umask;
 	ops->fs_xattr_access_rights = fs_xattr_access_rights;
 }
+
+static struct config_item export_params[] = {
+	CONF_ITEM_NOOP("name"),
+        CONF_ITEM_STRING("rgw_user_id", 0, MAXUIDLEN, NULL,
+		       rgw_fsal_export, rgw_export_uid),
+	CONF_ITEM_STRING("rgw_access_key_id", 0, MAXKEYLEN, NULL,
+		       rgw_fsal_export, rgw_access_key_id),
+	CONF_ITEM_STRING("rgw_secret_access_key", 0, MAXSECRETLEN, NULL,
+		       rgw_fsal_export, rgw_secret_access_key),
+	CONFIG_EOL
+};

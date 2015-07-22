@@ -50,16 +50,21 @@ struct rgw_fsal_module {
 };
 extern struct rgw_fsal_module RGWFSM;
 
+
+#define MAXUIDLEN 32
+#define MAXKEYLEN 20
+#define MAXSECRETLEN 40
+
 /**
  * RGW internal export object
  */
 
 struct rgw_export {
-	struct rgw_mount_info *cmount;	/*< The mount object used to
-					   access all RGW methods on
-					   this export. */
 	struct fsal_export export;	/*< The public export object */
 	struct rgw_handle *root;	/*< The root handle */
+        char rgw_user_id[MAXUIDLEN + 1];
+        char rgw_access_key_id[MAXKEYLEN + 1];
+        char rgw_secret_access_key[MAXSECRETLEN + 1];
 };
 
 /**

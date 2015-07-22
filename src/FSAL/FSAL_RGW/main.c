@@ -176,17 +176,7 @@ static fsal_status_t create_export(struct fsal_module *module_in,
 
 	initialized = true;
 
-	/* allocates rgw_mount_info */
-	rgw_status = rgw_create(&export->cmount, NULL);
-	if (rgw_status != 0) {
-		status.major = ERR_FSAL_SERVERFAULT;
-		LogCrit(COMPONENT_FSAL,
-			"Unable to create Ceph handle for %s.",
-			op_ctx->export->fullpath);
-		goto error;
-	}
-
-	rgw_status = rgw_conf_read_file(export->cmount, NULL);
+	rgw_status = rgw_conf_read_file(export, NULL);
 	if (rgw_status != 0) {
 		status.major = ERR_FSAL_SERVERFAULT;
 		LogCrit(COMPONENT_FSAL,
@@ -195,7 +185,7 @@ static fsal_status_t create_export(struct fsal_module *module_in,
 		goto error;
 	}
 
-	rgw_status = rgw_conf_parse_argv(export->cmount, 2, argv);
+	rgw_status = rgw_conf_parse_argv(export, 2, argv);
 	if (rgw_status != 0) {
 		status.major = ERR_FSAL_SERVERFAULT;
 		LogCrit(COMPONENT_FSAL,
@@ -204,7 +194,7 @@ static fsal_status_t create_export(struct fsal_module *module_in,
 		goto error;
 	}
 
-	rgw_status = rgw_mount(export->cmount, NULL);
+	rgw_status = rgw_mount(export->rgw_user_id, export->rgw_access_key_id, export->rgw_secret_access_key, &i);
 	if (rgw_status != 0) {
 		status.major = ERR_FSAL_SERVERFAULT;
 		LogCrit(COMPONENT_FSAL,
@@ -229,7 +219,7 @@ static fsal_status_t create_export(struct fsal_module *module_in,
 
 	rc = construct_handle(&st, i, export, &handle);
 	if (rc < 0) {
-		status = ceph2fsal_error(rc);
+		status = rgw2fsal_error(rc);
 		goto error;
 	}
 
@@ -238,12 +228,7 @@ static fsal_status_t create_export(struct fsal_module *module_in,
 	return status;
 
  error:
-	if (i)
-		rgw_ll_put(export->cmount, i);
-
 	if (export) {
-		if (export->cmount)
-			rgw_shutdown(export->cmount);
 		gsh_free(export);
 	}
 
